@@ -38,7 +38,7 @@ ONBUILD RUN yum install -y e2fsprogs which xfsprogs device-mapper-multipath \
 FROM ${SOURCE_REPO}:${SOURCE_IMAGE_TAG} as driver-ubim
 ONBUILD RUN microdnf update -y \
     && \
-    microdnf install -y e2fsprogs which xfsprogs device-mapper-multipath \
+    microdnf --disableplugin=subscription-manager install -y e2fsprogs which xfsprogs device-mapper-multipath \
     && \
     microdnf clean all
 
