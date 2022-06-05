@@ -1222,7 +1222,8 @@ func (s *service) verifyAndUpdateInitiatorsInADiffHost(ctx context.Context, symI
 							continue
 						}
 					} else if initiator.HostID != hostID {
-						errormsg = fmt.Sprintf("initiator: %s is already a part of a different host: %s on: %s",initiatorID, initiator.HostID, symID)
+						errormsg = fmt.Sprintf("initiator: %s is already a part of a different host: %s on: %s",
+						        initiatorID, initiator.HostID, symID)
 						log.Warning(errormsg)
 						continue
 					}
