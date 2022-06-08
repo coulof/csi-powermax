@@ -1292,7 +1292,10 @@ func (s *service) nodeHostSetup(ctx context.Context, portWWNs []string, IQNs []s
 			useIscsi = true
 		}
 		log.Infof("valid (existing) iSCSI initiators (must be manually created): %v\n", validIscsis)
-
+		if len(validIscsis) == 0 {
+			// IQNs are not yet part of any host on Unisphere
+			validIscsis = IQNs
+		}
 		if !useFC && !useIscsi {
 			log.Error("No valid initiators- could not initialize FC or iSCSI")
 			return err
