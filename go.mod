@@ -4,12 +4,14 @@ go 1.18
 
 replace github.com/coreos/go-systemd => github.com/coreos/go-systemd/v22 v22.0.0
 
+replace github.com/dell/dell-csi-extensions/migration v0.0.0-20220518094004-fd4b2bd2f440 => ../dell-csi-extensions/migration
+
 require (
 	github.com/container-storage-interface/spec v1.5.0
 	github.com/coreos/go-systemd v0.0.0-20190612170431-362f06ec6bc1
 	github.com/cucumber/godog v0.10.0
 	github.com/cucumber/messages-go/v10 v10.0.3
-	github.com/dell/dell-csi-extensions/common v1.0.0
+	github.com/dell/dell-csi-extensions/common v1.0.1-0.20220526070836-43b4ac597bf3
 	github.com/dell/dell-csi-extensions/migration v0.0.0-20220518094004-fd4b2bd2f440
 	github.com/dell/dell-csi-extensions/replication v0.0.0-20220518094004-fd4b2bd2f440
 	github.com/dell/gobrick v1.3.1-0.20220525051543-433fed5396a4

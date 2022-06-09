@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"os/exec"
 	"path"
 	"regexp"
 	"strconv"
@@ -27,14 +28,14 @@ import (
 	"sync"
 	"time"
 
-	pmax "github.com/dell/gopowermax"
-
 	csi "github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/coreos/go-systemd/dbus"
+	csiext "github.com/dell/dell-csi-extensions/migration"
 	"github.com/dell/gobrick"
 	csictx "github.com/dell/gocsi/context"
 	"github.com/dell/gofsutil"
 	"github.com/dell/goiscsi"
+	pmax "github.com/dell/gopowermax"
 	log "github.com/sirupsen/logrus"
 
 	types "github.com/dell/gopowermax/types/v90"
@@ -2145,4 +2146,28 @@ func (s *service) readWWNFile(id string) (string, error) {
 func (s *service) removeWWNFile(id string) {
 	wwnFileName := fmt.Sprintf("%s/%s.wwn", s.privDir, id)
 	os.Remove(wwnFileName) // #nosec G20
+}
+
+// NodeRescan scans for new path on the node
+func (s *service) NodeRescan(ctx context.Context,
+	req *csiext.NodeRescanRequest) (
+	*csiext.NodeRescanResponse, error) {
+	headers, ok := metadata.FromIncomingContext(ctx)
+	var reqID string
+	if ok {
+		if req, ok := headers["csi.requestid"]; ok && len(req) > 0 {
+			reqID = req[0]
+		}
+	}
+
+	f := log.Fields{
+		"CSIRequestID": reqID,
+	}
+	log.WithFields(f).Info("Calling NodeRescan")
+	rescanCmd := exec.Command("rescan-scsi-bus.sh")
+	_, err := rescanCmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	return &csiext.NodeRescanResponse{}, err
 }
