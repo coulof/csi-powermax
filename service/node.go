@@ -2171,3 +2171,14 @@ func (s *service) NodeRescan(ctx context.Context,
 	}
 	return &csiext.NodeRescanResponse{}, err
 }
+
+// RescanAllNodes scans for new path on the node
+func (s *service) RescanAllNodes() error {
+	log.Info("Calling NodeRescan")
+	rescanCmd := exec.Command("rescan-scsi-bus.sh")
+	_, err := rescanCmd.Output()
+	if err != nil {
+		return err
+	}
+	return nil
+}

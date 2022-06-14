@@ -61,6 +61,7 @@ const (
 	maxAuthenticateRetryCount  = 4
 	CSILogLevelParam           = "CSI_LOG_LEVEL"
 	CSILogFormatParam          = "CSI_LOG_FORMAT"
+	NodeRescanParam            = "NODE_RESCAN"
 )
 
 type contextKey string // specific string type used for context keys
@@ -166,6 +167,8 @@ type service struct {
 	topologyConfig      *TopologyConfig
 	allowedTopologyKeys map[string][]string // map of nodes to allowed topology keys
 	deniedTopologyKeys  map[string][]string // map of nodes to denied topology keys
+
+	doNodeRescan bool //if set driver will perform a rescan on each node.
 }
 
 // New returns a new Service.
@@ -178,7 +181,7 @@ func New() Service {
 	return svc
 }
 
-func updateDriverConfigParams(v *viper.Viper) {
+func updateDriverConfigParams(v *viper.Viper) bool {
 	logFormatFromConfig := v.GetString(CSILogFormatParam)
 	logFormatFromConfig = strings.ToLower(logFormatFromConfig)
 	if v.IsSet(CSILogFormatParam) && logFormatFromConfig != "" {
@@ -219,6 +222,13 @@ func updateDriverConfigParams(v *viper.Viper) {
 	setLogFormatAndLevel(formatter, level)
 	// set X_CSI_LOG_LEVEL so that gocsi doesn't overwrite the loglevel set by us
 	_ = os.Setenv(gocsi.EnvVarLogLevel, level.String())
+
+	nodeRescanFromConfig := v.GetString(NodeRescanParam)
+	nodeRescanFromConfig = strings.ToLower(nodeRescanFromConfig)
+	if v.IsSet(NodeRescanParam) && nodeRescanFromConfig != "" {
+		log.Infof("Read NODE_RESCAN: %s from configuration file", nodeRescanFromConfig)
+	}
+	return strings.EqualFold(nodeRescanFromConfig, "true")
 }
 
 func setLogFormatAndLevel(logFormat log.Formatter, level log.Level) {
@@ -296,7 +306,10 @@ func (s *service) BeforeServe(
 	paramsViper.WatchConfig()
 	paramsViper.OnConfigChange(func(e fsnotify.Event) {
 		log.Println("Received event for config file change:", e.Name)
-		updateDriverConfigParams(paramsViper)
+		s.doNodeRescan = updateDriverConfigParams(paramsViper)
+		if s.doNodeRescan && s.mode == "node" {
+			s.RescanAllNodes()
+		}
 	})
 
 	s.StartLockManager(defaultLockCleanupDuration * time.Hour)
