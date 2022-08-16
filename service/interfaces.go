@@ -51,6 +51,7 @@ func (s *service) initISCSIConnector(chroot string) {
 		s.iscsiConnector = gobrick.NewISCSIConnector(
 			gobrick.ISCSIConnectorParams{Chroot: chroot})
 	}
+	log.Infof("ISCSI Connector : %+v", s.iscsiConnector)
 }
 
 func (s *service) initFCConnector(chroot string) {
