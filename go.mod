@@ -3,7 +3,8 @@ module github.com/dell/csi-powermax/v2
 go 1.18
 
 replace github.com/coreos/go-systemd => github.com/coreos/go-systemd/v22 v22.0.0
-
+replace github.com/dell/dell-csi-extensions/migration => ../dell-csi-extensions/migration
+replace github.com/dell/gopowermax/v2 => ../gopowermax
 require (
 	github.com/container-storage-interface/spec v1.5.0
 	github.com/coreos/go-systemd v0.0.0-20190612170431-362f06ec6bc1
