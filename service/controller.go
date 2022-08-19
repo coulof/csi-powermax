@@ -25,10 +25,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dell/csi-powermax/v2/pkg/migration"
 	"github.com/dell/csi-powermax/v2/pkg/symmetrix"
-
 	pmax "github.com/dell/gopowermax/v2"
 
+	csimgr "github.com/dell/dell-csi-extensions/migration"
 	csiext "github.com/dell/dell-csi-extensions/replication"
 
 	"golang.org/x/net/context"
@@ -97,6 +98,7 @@ const (
 	Invalid                         = "Invalid"
 	Split                           = "Split"
 	SyncInProgress                  = "SyncInProg"
+	MigrationActionCommit           = "Commit"
 )
 
 // Keys for parameters to CreateVolume
@@ -1088,7 +1090,7 @@ func (s *service) getOrCreateProtectedStorageGroup(ctx context.Context, symID, l
 // For async mode, one srdf group can only have rdf pairing from one namespace
 // In async rdf mode there should be One to One correspondence between namespace and srdf group
 func (s *service) verifyProtectionGroupID(ctx context.Context, symID, storageGroupName, namespace, localRdfGrpNo, repMode string, pmaxClient pmax.Pmax) error {
-	sgList, err := pmaxClient.GetStorageGroupIDList(ctx, symID)
+	sgList, err := pmaxClient.GetStorageGroupIDList(ctx, symID, "", false)
 	if err != nil {
 		return err
 	}
@@ -3752,4 +3754,120 @@ func (s *service) GetStorageProtectionGroupStatus(ctx context.Context, req *csie
 		Status: pgStatus,
 	}
 	return resp, err
+}
+
+func (s *service) ArrayMigrate(ctx context.Context, req *csimgr.ArrayMigrateRequest) (*csimgr.ArrayMigrateResponse, error) {
+
+	var reqID string
+	headers, ok := metadata.FromIncomingContext(ctx)
+	if ok {
+		if req, ok := headers["csi.requestid"]; ok && len(req) > 0 {
+			reqID = req[0]
+		}
+	}
+	params := req.GetParameters()
+	if len(params) <= 0 {
+		log.Error("Invalid Arguments")
+		return nil, status.Errorf(codes.InvalidArgument, "Invalid argument")
+	}
+	localSymID := params[SymmetrixIDParam]
+	remoteSymID := params[RemoteSymIDParam]
+	if localSymID == "" || remoteSymID == "" {
+		log.Error("A SYMID parameter is required")
+		return nil, status.Errorf(codes.InvalidArgument, "A SYMID parameter is required")
+	}
+	action := req.GetAction()
+	fields := map[string]interface{}{
+		"RequestID":   reqID,
+		"LocalSymID":  localSymID,
+		"RemoteSymID": remoteSymID,
+		"Action":      action,
+	}
+	log.WithFields(fields).Info("Executing ArrayMigration with following fields")
+
+	pmaxClient, err := s.GetPowerMaxClient(localSymID)
+	if err != nil {
+		log.Error(err.Error())
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	switch action.GetActionTypes() {
+	case csimgr.ActionTypes_MG_MIGRATE:
+		//env setup call
+		_, err := migration.GetOrCreateMigrationEnvironment(ctx, localSymID, remoteSymID, pmaxClient)
+		if err != nil {
+			csiMgrResp := &csimgr.ArrayMigrateResponse{
+				Success: false,
+				ActionTypes: &csimgr.ArrayMigrateResponse_Action{
+					Action: action,
+				},
+			}
+			log.Errorf("failed to create array migration environment for target array (%s) - Error (%s)", remoteSymID, err.Error())
+			return csiMgrResp, status.Errorf(codes.Internal, "failed to create array migration environment for target array (%s) - Error (%s)", remoteSymID, err.Error())
+		}
+		sgStatus, err := migration.StorageGroupMigration(ctx, localSymID, remoteSymID, s.getClusterPrefix(), pmaxClient)
+		if err != nil {
+			return nil, err
+		}
+		csiMgrResp := &csimgr.ArrayMigrateResponse{
+			Success: sgStatus,
+			ActionTypes: &csimgr.ArrayMigrateResponse_Action{
+				Action: action,
+			},
+		}
+		return csiMgrResp, nil
+	case csimgr.ActionTypes_MG_COMMIT:
+		// call function to commit SG for migration session
+		modified, err := migration.StorageGroupCommit(ctx, localSymID, MigrationActionCommit, pmaxClient)
+		if err != nil {
+			csiMgrResp := &csimgr.ArrayMigrateResponse{
+				Success: modified,
+				ActionTypes: &csimgr.ArrayMigrateResponse_Action{
+					Action: action,
+				},
+			}
+			return csiMgrResp, err
+		}
+		// Add remote volumes to remote storage groups
+		added, err := migration.AddVolumesToRemoteSG(ctx, remoteSymID, pmaxClient)
+		if err != nil {
+			csiMgrResp := &csimgr.ArrayMigrateResponse{
+				Success: added,
+				ActionTypes: &csimgr.ArrayMigrateResponse_Action{
+					Action: action,
+				},
+			}
+			return csiMgrResp, err
+
+		}
+
+		//reset env
+		err = pmaxClient.DeleteMigrationEnvironment(ctx, localSymID, remoteSymID)
+		if err != nil {
+			csiMgrResp := &csimgr.ArrayMigrateResponse{
+				Success: false,
+				ActionTypes: &csimgr.ArrayMigrateResponse_Action{
+					Action: action,
+				},
+			}
+			log.Error(fmt.Sprintf("Failed to remove array migration environment for target array (%s) - Error (%s)", remoteSymID, err.Error()))
+			return csiMgrResp, status.Errorf(codes.Internal, "to remove array migration environment for target array(%s) - Error (%s)", remoteSymID, err.Error())
+		}
+
+		csiMgrResp := &csimgr.ArrayMigrateResponse{
+			Success: true,
+			ActionTypes: &csimgr.ArrayMigrateResponse_Action{
+				Action: action,
+			},
+		}
+		return csiMgrResp, nil
+	default:
+		csiMgResp := &csimgr.ArrayMigrateResponse{
+			Success: false,
+			ActionTypes: &csimgr.ArrayMigrateResponse_Action{
+				Action: action,
+			},
+		}
+		return csiMgResp, status.Errorf(codes.InvalidArgument, "Invalid action")
+	}
 }
