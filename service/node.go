@@ -1838,6 +1838,7 @@ func (s *service) NodeExpandVolume(
 	// We are getting target path that points to mounted path on "/"
 	// This doesn't help us, though we should trace the path received
 	volumePath := req.GetVolumePath()
+	log.Infof("volume path name is %s", volumePath)
 	if volumePath == "" {
 		log.Error("Volume path required")
 		return nil, status.Error(codes.InvalidArgument,
@@ -1845,6 +1846,7 @@ func (s *service) NodeExpandVolume(
 	}
 
 	id := req.GetVolumeId()
+	log.Infof("volume id is %s", id)
 	_, symID, _, _, _, err := s.parseCsiID(id)
 	if err != nil {
 		log.Errorf("Invalid volumeid: %s", id)
@@ -1876,17 +1878,22 @@ func (s *service) NodeExpandVolume(
 	replace := CSIPrefix + "-" + s.getClusterPrefix() + "-"
 	volName := strings.Replace(vol.VolumeIdentifier, replace, "", 1)
 	//remove the namespace from the volName as the mount paths will not have it
+	log.Infof("volume name is %s", volName)
 	volName = strings.Join(strings.Split(volName, "-")[:2], "-")
+	log.Infof("volume name is %s", volName)
 
 	//Locate and fetch all (multipath/regular) mounted paths using this volume
 	devMnt, err := gofsutil.GetMountInfoFromDevice(ctx, volName)
+	log.Infof("device mount information is : %+v", devMnt)
 	if err != nil {
 		var devName string
 		// No mounts were found. Perhaps it is a raw block device, which would not be mounted.
 		deviceNames, _ := gofsutil.GetSysBlockDevicesForVolumeWWN(context.Background(), volumeWWN)
 		if len(deviceNames) > 0 {
 			for _, deviceName := range deviceNames {
+				log.Infof("device name from sysclock is %s", deviceName)
 				devicePath := sysBlock + "/" + deviceName
+				log.Infof("device Path from sysclock is %s", deviceName)
 				log.Infof("Rescanning unmounted (raw block) device %s to expand size", deviceName)
 				err = gofsutil.DeviceRescan(context.Background(), devicePath)
 				if err != nil {
@@ -1928,7 +1935,9 @@ func (s *service) NodeExpandVolume(
 
 	// Rescan the device for the volume expanded on the array
 	for _, device := range devMnt.DeviceNames {
+		log.Infof("device for mount volumes is %s",device)
 		devicePath := sysBlock + "/" + device
+		log.Infof("device for mount volumes is %s",device)
 		err = gofsutil.DeviceRescan(context.Background(), devicePath)
 		if err != nil {
 			log.Errorf("Failed to rescan device (%s) with error (%s)", devicePath, err.Error())
@@ -1938,6 +1947,7 @@ func (s *service) NodeExpandVolume(
 
 	// Expand the filesystem with the actual expanded volume size.
 	if devMnt.MPathName != "" {
+		log.Infof("mpath name from devmnt is %s",devMnt.MPathName)
 		err = gofsutil.ResizeMultipath(context.Background(), devMnt.MPathName)
 		if err != nil {
 			log.Errorf("Failed to resize filesystem: device  (%s) with error (%s)", devMnt.MountPoint, err.Error())
@@ -1952,6 +1962,7 @@ func (s *service) NodeExpandVolume(
 	} else {
 		devicePath = "/dev/" + devMnt.DeviceNames[0]
 	}
+	log.Infof("device path for finding the FStype is %s", devicePath)
 
 	// Determine file system type
 	fsType, err := gofsutil.FindFSType(context.Background(), devMnt.MountPoint)
