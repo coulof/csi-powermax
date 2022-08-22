@@ -6,7 +6,8 @@ replace github.com/coreos/go-systemd => github.com/coreos/go-systemd/v22 v22.0.0
 
 replace github.com/dell/gobrick => ../gobrick
 
-replace github.com/dell/gopowermax => ../gopowermax
+replace github.com/dell/gofsutil => ../gofsutil
+
 
 require (
 	github.com/container-storage-interface/spec v1.5.0
@@ -39,6 +40,7 @@ require (
 	github.com/cucumber/gherkin-go/v11 v11.0.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dell/gonvme v1.1.1-0.20220704070618-c22e60197ee5 // indirect
+	github.com/dell/gopowermax/v2 v2.0.0-20220818034616-a85ab3cf9394 // indirect
 	github.com/godbus/dbus/v5 v5.0.4 // indirect
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect

@@ -1935,9 +1935,9 @@ func (s *service) NodeExpandVolume(
 
 	// Rescan the device for the volume expanded on the array
 	for _, device := range devMnt.DeviceNames {
-		log.Infof("device for mount volumes is %s",device)
+		log.Infof("device for mount volumes is %s", device)
 		devicePath := sysBlock + "/" + device
-		log.Infof("device for mount volumes is %s",device)
+		log.Infof("device for mount volumes is %s", device)
 		err = gofsutil.DeviceRescan(context.Background(), devicePath)
 		if err != nil {
 			log.Errorf("Failed to rescan device (%s) with error (%s)", devicePath, err.Error())
@@ -1947,7 +1947,7 @@ func (s *service) NodeExpandVolume(
 
 	// Expand the filesystem with the actual expanded volume size.
 	if devMnt.MPathName != "" {
-		log.Infof("mpath name from devmnt is %s",devMnt.MPathName)
+		log.Infof("mpath name from devmnt is %s", devMnt.MPathName)
 		err = gofsutil.ResizeMultipath(context.Background(), devMnt.MPathName)
 		if err != nil {
 			log.Errorf("Failed to resize filesystem: device  (%s) with error (%s)", devMnt.MountPoint, err.Error())
